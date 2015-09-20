@@ -6,7 +6,7 @@
 	<version>1.0.0</version>
 	<packaging>war</packaging>
 
-	<description>Consulta de horários de ônibus</description>
+	<description>Consulta de linhas intermunicipais de ônibus (SC).</description>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -112,4 +112,6 @@
 
 		</plugins>
 	</build>
+	<name>ConsultaDETERSC</name>
+	<url>https://github.com/gpassero/ConsultaDETERSC</url>
 </project>
