@@ -8,18 +8,22 @@ Este projeto visa melhorar a consulta de linhas intermunicipais de ônibus exist
 - Autocompletar o nome dos municípios;
 - Existir um meio de cidadãos notificarem horários incorretos (ônibus chega antes ou depois);
 - Permitir a consulta via outros dispositivos além do PC (design responsivo ou app nativo).
+
 ### Instalação
 No Tomcat 8 fazer deploy do último WAR disponibilizado na pasta [dist](deter/dist/).
+
 ### Execução
 Acessar a URL http://host[:porta]/contexto/horario.
 Ex.: http://localhost:8080/deter-1/horario.
+
 ### Como trabalhar no código fonte?
 Sugiro importar o projeto no eclipse como Projeto Maven.
+
 ### Bibliotecas utilizadas
- - VRaptor 4.2.0-RC3
- - Java Servlet API 3.1
- - JSP 2.2
- - jsoup 1.8.3
- - gson 2.2.2
+- VRaptor 4.2.0-RC3
+- Java Servlet API 3.1
+- JSP 2.2
+- jsoup 1.8.3
+- gson 2.2.2
 
 
