@@ -6,7 +6,7 @@ Este projeto visa melhorar a consulta de linhas intermunicipais de ônibus exist
 - Corrigir a pesquisa por municípios com nome grande (se pesquisar por ''Trombudo Central", por exemplo, não dá resultados, é necessário informar "TROMB CENTRAL");
 - Quando o usuário informar o nome completo do município, e não ter municípios com nome parecido, abrir diretamente a tabela com os horários disponíveis, ao invés de exigir do usuário que selecione novamente os municípios já informados;
 - Autocompletar o nome dos municípios;
-- Existir um meio de cidadãos notificarem horários incorretos (ônibus chega antes ou depois);
+- Existir um meio dos cidadãos notificarem horários incorretos (ônibus chega antes ou depois);
 - Permitir a consulta via outros dispositivos além do PC (design responsivo ou app nativo).
 
 ### Instalação
