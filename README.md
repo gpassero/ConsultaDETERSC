@@ -1,14 +1,14 @@
-# Consulta de Linhas Intermunicipais de Ônibus (SC) 
+# Consulta de Linhas Intermunicipais de Ã”nibus (SC) 
 ==============
-### O que é?
-Este projeto visa melhorar a consulta de linhas intermunicipais de ônibus existente hoje no [site do DETER/SC](www.deter.sc.gov.br/index.php?modulo=conteudo&int_seq_secao=15&int_seq_subsecao=95&int_seq_conteudo=21).
+### O que Ã©?
+Este projeto visa melhorar a consulta de linhas intermunicipais de Ã´nibus existente hoje no [site do DETER/SC](http://www.deter.sc.gov.br/index.php?modulo=conteudo&int_seq_secao=15&int_seq_subsecao=95&int_seq_conteudo=21).
  
-### Instalação
-No Tomcat 8 fazer deploy do último WAR disponibilizado na pasta dist/.
-### Execução
+### InstalaÃ§Ã£o
+No Tomcat 8 fazer deploy do Ãºltimo WAR disponibilizado na pasta [dist](deter/dist/).
+### ExecuÃ§Ã£o
 Acessar a URL http://host[:porta]/contexto/horario.
 Ex.: http://localhost:8080/deter-1/horario.
-### Como trabalhar no código fonte?
+### Como trabalhar no cÃ³digo fonte?
 Sugiro importar o projeto no eclipse como Projeto Maven.
 ### Bibliotecas utilizadas
  - VRaptor 4.2.0-RC3
