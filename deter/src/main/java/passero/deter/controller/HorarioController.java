@@ -2,6 +2,7 @@ package passero.deter.controller;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
@@ -11,9 +12,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.MessageFormat;
+import java.text.Normalizer;
+import java.text.Normalizer.Form;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -51,13 +55,14 @@ public class HorarioController {
 	private HashMap<String, String> locaisMap;
 	private ArrayList<String> locaisNome;
 	private final String MASCARA_URL = "http://www2.deter.sc.gov.br/cgi-bin/users/relatorio.pl?localo=%s&locald=%s";
-	private final String MASCARA_URL_LOCAIS = "http://www2.deter.sc.gov.br/cgi-bin/users/localidades.pl?origem=%s";
+	private final String MASCARA_URL_LOCAIS = "http://www2.deter.sc.gov.br/cgi-bin/users/localidades.pl?origem=%s&destino=xx";
 	private final String ARQUIVO_LOCAIS = "locais.json";
+	private final String ARQUIVO_CIDADES_SC = "todas_as_cidades_de_sc.txt";
 	private File arquivoLocais;
-	private final String[][] CORRECAO_NOMES = {{"TROMB CENTRAL", "Trombudo Central"},
-			{"PRES GETULIO", "Presidente Getúlio"}};
+	private File arquivoCidadesSC;
 	private String localOrigem;
 	private String localDestino;
+	private List<String> cidadesSC;
 
 	@Path("/horario/")
 	public void index() {
@@ -66,9 +71,15 @@ public class HorarioController {
 		//System.out.println(new Gson().toJson(horarios));
 	}	
 
-	public List<Horario> consultar(String origem, String destino) {		
-		localOrigem = origem.toUpperCase().replace(" ", "+").trim();
-		localDestino = destino.toUpperCase().replace(" ", "+").trim();
+	public List<Horario> consultar(String origem, String destino) {					
+		//Procura o nome abreviado (padrão DETER) no mapa de locais		
+		carregarLocaisLocal();
+		localOrigem = locaisMap.get(normalizar(origem));
+		localDestino = locaisMap.get(normalizar(destino));
+		if (localOrigem == null  || localOrigem.isEmpty())  localOrigem = origem;
+		if (localDestino == null || localDestino.isEmpty()) localDestino = destino;		
+		localOrigem = localOrigem.toUpperCase().replace(" ", "+").trim();
+		localDestino = localDestino.toUpperCase().replace(" ", "+").trim();
 		String url = String.format(MASCARA_URL, localOrigem, localDestino);
 		result.include("origem", origem);
 		result.include("destino", destino);
@@ -141,6 +152,9 @@ public class HorarioController {
 			if (locaisArray != null && locaisArray.length > 0) {
 				setLocais(Arrays.asList(locaisArray));					
 			} else {
+				if (locaisArray != null && locaisArray.length == 0) {
+					carregarLocaisRemoto();
+				}
 				result.use(Results.status()).internalServerError();
 				result.forwardTo(ErroController.class).erro();					
 				System.out.println("Não foi possível carregar o arquivo " + ARQUIVO_LOCAIS + ".");
@@ -176,7 +190,7 @@ public class HorarioController {
 		locaisNome = new ArrayList<String>();
 		if (locais != null) { 
 			for (Local l : locais) {
-				locaisMap.put(l.getId(), l.getNome());
+				locaisMap.put(normalizar(l.getNome()), l.getId());
 				locaisNome.add(l.getNome());
 			}
 		}
@@ -203,7 +217,7 @@ public class HorarioController {
 					if (ascii1 == ' ') {
 						ascii2 = ' ';
 					}
-					pesquisa = Character.toString((char) ascii1) + Character.toString((char) ascii2); 			
+					pesquisa = Character.toString((char) ascii1) + Character.toString((char) ascii2);
 					url = String.format(MASCARA_URL_LOCAIS, pesquisa);
 					doc = Jsoup.connect(url).get();					
 					for (Element table : doc.select("table")) {				
@@ -232,17 +246,28 @@ public class HorarioController {
 		System.out.println("Carregamento de locais terminado em " + tempo + " segundos");
 		locais = new ArrayList<Local>();
 		String localNome;
+		String words[];
 		for (String localId : locaisSet) {
+			if (localId.contains("-")) {
+				words = localId.split("-");			
+				if (words[0].trim().equals(words[1].trim())) {
+					localId = words[0].trim();
+				}
+			}				
 			localNome = localId;
-			localNome = corrigeNomes(localNome);
-			localNome = corrigeMaiusculas(localNome);				
+			localNome = corrigirNome(localNome);
+			localNome = corrigirMaiusculas(localNome);				
 			locais.add(new Local(localId, localNome));
+			//DEBUG
+//			if (!localId.equals(localNome)) {
+//				System.out.println("Nome corrigido: " + localId + " -> " + localNome);
+//			}
 		}		
 		setLocais(locais);
-		gravaLocais(locais);	
+		gravarLocais(locais);	
 	}
 	
-	private String corrigeMaiusculas(String txt) {
+	public String corrigirMaiusculas(String txt) {
 		// uma palavra por vez  
 		String[] words = txt.trim().split(" ");  
 		String out = "";  
@@ -255,38 +280,67 @@ public class HorarioController {
 			} else {  
 				out += StringUtils.capitalize(words[i]) + " ";  
 			}  		
-		}
-		if (out.contains("-")) {
-			words = out.split("-");
-			if (words[0].trim().equals(words[1].trim())) {
-				out = words[0];
-			}
-		}		
+		}	
 		return out.trim();
 	}	
 	
-	private String corrigeNomes(String localNome) {
+	//Completa cidades com nome incompleto
+	public String corrigirNome(String localNome) {
 		String out = "";
-		String[] words = {localNome};
-		if (localNome.contains("-")) {
-			words = localNome.split("-");
+		String[] palavras = {localNome};
+		if (localNome.contains(" - ")) {
+			palavras = localNome.split(" - ");
 		}
-		for (String[] nomes : CORRECAO_NOMES) {
-			for (int i = 0; i < words.length; i++) {
-				if (nomes[0].trim().toUpperCase().equals(words[i].trim().toUpperCase())) {
-					words[i] = nomes[1];
-				}					
-			}						
-		}			
-		if (words.length == 1) {
-			out = words[0];
+		carregarCidadesSC();			
+		String nomeCorreto = palavras[palavras.length-1];
+		String nomeNormalizado = normalizar(palavras[palavras.length-1]);
+		for (String cidadeSC : cidadesSC) {			
+			if (normalizar(cidadeSC).matches(nomeNormalizado.replace(" ", ".*")+".*")) {				
+				nomeCorreto = cidadeSC;				
+				if (normalizar(cidadeSC).equals(nomeNormalizado)) {
+					break;
+				}				
+			}										
+		}		
+		palavras[palavras.length-1] = nomeCorreto;
+		if (palavras.length == 1) {
+			out = palavras[0];
 		} else {
-			out = words[0].trim() + " - " + words[1].trim();
+			out = palavras[0].trim() + " - " + palavras[1].trim();
 		}
 		return out;
 	}
+	
+	private static String normalizar(String palavra) {
+	    return Normalizer.normalize(palavra, Form.NFD)
+	        .replaceAll("\\p{InCombiningDiacriticalMarks}+", "").trim().toUpperCase();
+	}	
 
-	private void gravaLocais(List<Local> locais) {
+	private void carregarCidadesSC() {
+		if (cidadesSC == null || cidadesSC.size() == 0) {
+			try {
+				BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(getArquivoCidadesSC()), "UTF-8"));
+				String linha;
+				cidadesSC = new ArrayList<String>();
+				while ((linha = br.readLine()) != null) {
+					cidadesSC.add(linha);
+				}
+				if (cidadesSC == null || cidadesSC.size() == 0) {
+					result.use(Results.status()).internalServerError();
+					result.forwardTo(ErroController.class).erro();					
+					System.out.println("Não foi possível carregar o arquivo " + ARQUIVO_LOCAIS + ".");
+				}							
+			} catch (FileNotFoundException e) {
+				result.use(Results.status()).internalServerError();
+				result.forwardTo(ErroController.class).erro();			
+			} catch (IOException e) {
+				result.use(Results.status()).internalServerError();
+				result.forwardTo(ErroController.class).erro();		
+			}	
+		}			
+	}
+
+	private void gravarLocais(List<Local> locais) {
 		try {
 			File file = getArquivoLocais();
 			if (file.exists()) {
@@ -310,10 +364,25 @@ public class HorarioController {
 			} catch (URISyntaxException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (NullPointerException e) {
+				e.printStackTrace();
 			}
 		}
 		return arquivoLocais;		
 	}
+	
+	private File getArquivoCidadesSC() {
+		if (arquivoCidadesSC == null) {
+			try {
+				
+				arquivoCidadesSC = new File(getClass().getClassLoader().getResource(ARQUIVO_CIDADES_SC).toURI());
+			} catch (URISyntaxException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return arquivoCidadesSC;		
+	}	
 	
 	public String getLocalOrigem() {
 		return localOrigem;
@@ -331,4 +400,15 @@ public class HorarioController {
 		this.localDestino = localDestino;
 	}
 	
+	public static String decodeParametro(String texto) {
+	    try {
+	        byte[] bytes = texto.getBytes("ISO-8859-1");
+	        texto = new String(bytes, "UTF-8");
+	    } catch (UnsupportedEncodingException e) {
+	        e.printStackTrace();
+	        return texto;
+	    }
+
+	    return texto;
+	}	
 }
